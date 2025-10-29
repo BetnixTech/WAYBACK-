@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Time Traveler Web Viewer</title>
+    <title id="docTitle">Time Traveler Web Viewer</title>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -27,7 +27,8 @@
             height: 100%; 
             border: none;
             background-color: #f3f4f6; /* Light gray background for loading */
-            border-radius: 0.75rem; /* Rounded corners */
+            border-bottom-left-radius: 0.75rem; /* Only bottom corners rounded now */
+            border-bottom-right-radius: 0.75rem;
         }
     </style>
 </head>
@@ -82,6 +83,12 @@
         <div id="messageBox" class="text-sm p-3 bg-red-100 text-red-700 rounded-lg mb-4 hidden" role="alert">
             <!-- Dynamic error messages will appear here -->
         </div>
+        
+        <!-- NEW: Current Status Display -->
+        <div id="statusBox" class="text-sm p-3 bg-gray-700 text-white rounded-t-lg shadow-inner flex justify-between items-center hidden">
+            <span id="currentUrlText" class="truncate font-mono text-xs md:text-sm"></span>
+            <span class="text-xs ml-4 opacity-70 flex-shrink-0">Viewing Archived Content</span>
+        </div>
 
         <!-- Iframe Container and Overlay - Use flex-1 to occupy all remaining vertical space -->
         <div id="iframe-container" class="relative flex-1">
@@ -111,6 +118,9 @@
         const iframe = document.getElementById('web-archive-iframe');
         const messageBox = document.getElementById('messageBox');
         const loadingOverlay = document.getElementById('loadingOverlay');
+        const statusBox = document.getElementById('statusBox');
+        const currentUrlText = document.getElementById('currentUrlText');
+        const docTitle = document.getElementById('docTitle'); // Reference to the document title
 
         // Set the maximum year to the current year
         yearInput.max = new Date().getFullYear();
@@ -183,6 +193,13 @@
 
             startLoading();
 
+            // 1. Update the document title to reflect what is being viewed
+            docTitle.textContent = `Viewing: ${urlInput.value} (${year}) - Wayback`;
+
+            // 2. Update the status bar with the constructed Wayback URL
+            currentUrlText.textContent = waybackUrl;
+            statusBox.classList.remove('hidden');
+
             // Set the iframe source
             iframe.src = waybackUrl;
 
@@ -196,6 +213,7 @@
             iframe.onload = () => {
                 clearTimeout(loadTimeout);
                 stopLoading();
+                // We cannot reliably read the iframe's new URL or title due to security
             };
 
             // Catch potential load errors (limited by cross-origin security)
