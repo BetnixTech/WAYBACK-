@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time Traveler Web Viewer</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Apply Inter font */
+        html { font-family: 'Inter', sans-serif; }
+        
+        /* Ensure HTML and Body take full viewport height for effective flexbox usage */
+        html, body { height: 100%; }
+
+        /* Style for the iframe container */
+        #iframe-container {
+            width: 100%;
+            /* Removed static height calculation - using flexbox (flex-1) to fill space */
+            transition: all 0.3s ease;
+            display: flex; /* Make container flex to ensure iframe fills it */
+        }
+        
+        /* Style for the actual iframe: ensure it takes 100% of its parent's (iframe-container) height */
+        #web-archive-iframe {
+            width: 100%;
+            height: 100%; 
+            border: none;
+            background-color: #f3f4f6; /* Light gray background for loading */
+            border-radius: 0.75rem; /* Rounded corners */
+        }
+    </style>
+</head>
+<!-- Set body to be a column flex container to stack controls and the iframe vertically -->
+<body class="bg-gray-50 h-screen p-4 md:p-6 flex flex-col overflow-hidden">
+
+    <!-- Outer container: must also be a flex column to push the iframe down -->
+    <div class="max-w-6xl mx-auto flex flex-col w-full h-full">
+
+        <!-- Header and Controls (fixed height content) -->
+        <header class="mb-4">
+            <h1 class="text-3xl font-extrabold text-indigo-700 tracking-tight mb-1">
+                Wayback Time Viewer
+            </h1>
+            <p class="text-gray-500 text-sm">
+                Enter a URL and a specific year to view its archived snapshot from the Internet Archive.
+            </p>
+        </header>
+
+        <!-- Input Form (fixed height content) -->
+        <div class="bg-white p-4 rounded-xl shadow-lg flex flex-col md:flex-row gap-4 mb-4">
+            
+            <!-- URL Input -->
+            <div class="flex-grow">
+                <label for="urlInput" class="block text-sm font-medium text-gray-700 mb-1">Website URL (e.g., google.com)</label>
+                <input type="url" id="urlInput" placeholder="https://example.com" value="wikipedia.org" 
+                       class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
+            </div>
+
+            <!-- Year Input -->
+            <div class="w-full md:w-32">
+                <label for="yearInput" class="block text-sm font-medium text-gray-700 mb-1">Target Year</label>
+                <input type="number" id="yearInput" placeholder="2005" value="2005" min="1996" max="2024"
+                       class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
+            </div>
+
+            <!-- Submit Buttons (View and Fullscreen) -->
+            <div class="flex items-end gap-3">
+                <button id="viewButton" 
+                        class="w-full md:w-auto px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-150 transform hover:scale-[1.01] active:scale-[0.98]">
+                    View Archive
+                </button>
+                <button id="fullscreenButton" title="Toggle Fullscreen"
+                        class="px-4 py-3 bg-gray-200 text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 transition duration-150 transform hover:scale-[1.01] active:scale-[0.98]">
+                    <!-- Maximize Icon (Lucide-style SVG) -->
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-maximize-2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><path d="M21 3 14 10"/><path d="M3 21 10 14"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Message/Error Area (fixed height content) -->
+        <div id="messageBox" class="text-sm p-3 bg-red-100 text-red-700 rounded-lg mb-4 hidden" role="alert">
+            <!-- Dynamic error messages will appear here -->
+        </div>
+
+        <!-- Iframe Container and Overlay - Use flex-1 to occupy all remaining vertical space -->
+        <div id="iframe-container" class="relative flex-1">
+            <!-- Iframe Loading Overlay -->
+            <div id="loadingOverlay" class="absolute inset-0 bg-white/70 backdrop-blur-sm flex items-center justify-center rounded-xl z-10 hidden">
+                <div class="flex flex-col items-center">
+                    <svg class="animate-spin -ml-1 mr-3 h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p class="mt-3 text-indigo-600 font-medium">Loading Archived Page...</p>
+                </div>
+            </div>
+
+            <!-- The Iframe itself -->
+            <iframe id="web-archive-iframe" title="Wayback Machine Snapshot" src="" class="shadow-xl"></iframe>
+        </div>
+
+    </div>
+
+    <script>
+        const urlInput = document.getElementById('urlInput');
+        const yearInput = document.getElementById('yearInput');
+        const viewButton = document.getElementById('viewButton');
+        const fullscreenButton = document.getElementById('fullscreenButton');
+        const iframeContainer = document.getElementById('iframe-container');
+        const iframe = document.getElementById('web-archive-iframe');
+        const messageBox = document.getElementById('messageBox');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+
+        // Set the maximum year to the current year
+        yearInput.max = new Date().getFullYear();
+
+        /**
+         * Clears and hides the message box.
+         */
+        function clearMessage() {
+            messageBox.textContent = '';
+            messageBox.classList.add('hidden');
+        }
+
+        /**
+         * Displays a warning message in the message box.
+         * @param {string} message - The warning message to display.
+         */
+        function displayError(message) {
+            messageBox.textContent = message;
+            messageBox.classList.remove('hidden');
+            messageBox.classList.remove('bg-red-100', 'text-red-700');
+            messageBox.classList.add('bg-yellow-100', 'text-yellow-800');
+        }
+
+        /**
+         * Starts the loading animation.
+         */
+        function startLoading() {
+            loadingOverlay.classList.remove('hidden');
+            viewButton.disabled = true;
+            viewButton.textContent = 'Loading...';
+        }
+
+        /**
+         * Stops the loading animation.
+         */
+        function stopLoading() {
+            loadingOverlay.classList.add('hidden');
+            viewButton.disabled = false;
+            viewButton.textContent = 'View Archive';
+        }
+
+        /**
+         * Constructs and loads the Wayback Machine URL.
+         */
+        function loadWayback() {
+            clearMessage();
+            let url = urlInput.value.trim();
+            const year = yearInput.value.trim();
+
+            if (!url) {
+                displayError("Please enter a valid URL.");
+                return;
+            }
+            // Use a more robust check for the year
+            const currentYear = new Date().getFullYear();
+            const parsedYear = parseInt(year);
+            if (isNaN(parsedYear) || parsedYear < 1996 || parsedYear > currentYear) {
+                displayError(`Please enter a year between 1996 and ${currentYear}.`);
+                return;
+            }
+
+            // Simple prefix correction if the user forgets http/https
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                url = 'http://' + url;
+            }
+
+            // The Wayback Machine format is /web/YYYYMMDDHHMMSS/Original URL
+            // We use YYYY0101 to try and get a snapshot on or closest to January 1st of that year.
+            const waybackUrl = `https://web.archive.org/web/${year}0101/${encodeURIComponent(url)}`;
+
+            startLoading();
+
+            // Set the iframe source
+            iframe.src = waybackUrl;
+
+            // Timeout as a fallback mechanism since cross-origin iframes prevent reliable onload detection
+            const loadTimeout = setTimeout(() => {
+                stopLoading();
+                displayError("The page is loading slowly. If it remains blank, the Wayback Machine may not have a snapshot for that year, or the content failed to load due to cross-origin restrictions.");
+            }, 20000); // Increased timeout to 20 seconds for slow loads
+
+            // Attempt to clear the timeout when the iframe loads (will only work if same-origin)
+            iframe.onload = () => {
+                clearTimeout(loadTimeout);
+                stopLoading();
+            };
+
+            // Catch potential load errors (limited by cross-origin security)
+            iframe.onerror = () => {
+                clearTimeout(loadTimeout);
+                stopLoading();
+                displayError("An error occurred trying to load the archived page.");
+            };
+        }
+        
+        /**
+         * Toggles the iframe container between normal and fullscreen mode.
+         */
+        function toggleFullscreen() {
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+            } else {
+                // Request fullscreen on the container that holds the iframe
+                iframeContainer.requestFullscreen().catch(err => {
+                    // Display error if fullscreen request fails (e.g., due to browser restrictions)
+                    displayError(`Error attempting to go fullscreen: ${err.message}.`);
+                });
+            }
+        }
+
+        // Event listeners
+        viewButton.addEventListener('click', loadWayback);
+        fullscreenButton.addEventListener('click', toggleFullscreen); // New fullscreen listener
+        
+        // Allow pressing Enter key in the inputs to trigger the load
+        const handleEnterKey = (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                loadWayback();
+            }
+        };
+        urlInput.addEventListener('keydown', handleEnterKey);
+        yearInput.addEventListener('keydown', handleEnterKey);
+
+        // Initialize with a default view on page load
+        window.onload = loadWayback;
+    </script>
+</body>
+</html>
