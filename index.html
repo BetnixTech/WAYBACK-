@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title id="docTitle">Time Traveler Web Viewer</title>
+    <!-- NEW: Favicon Link for Dynamic Updates -->
+    <link rel="icon" type="image/x-icon" id="faviconLink" href="data:image/x-icon;base64,AAABAAIAICAAAAAAAADoEAgAAJgOAIAAAJgoAEAAAJgoAEAAAqFwgAIJgoAAAAoAAAAIAAAACAAAAABAAAEAAAAAAABAAAAAQAAAKgEAAAoAAAAIAAAACAAAACgAAAAQAAAABAAAABAAAAAwBAAAoAAAAIAAAA==">
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -84,7 +86,7 @@
             <!-- Dynamic error messages will appear here -->
         </div>
         
-        <!-- NEW: Current Status Display -->
+        <!-- Current Status Display -->
         <div id="statusBox" class="text-sm p-3 bg-gray-700 text-white rounded-t-lg shadow-inner flex justify-between items-center hidden">
             <span id="currentUrlText" class="truncate font-mono text-xs md:text-sm"></span>
             <span class="text-xs ml-4 opacity-70 flex-shrink-0">Viewing Archived Content</span>
@@ -121,6 +123,7 @@
         const statusBox = document.getElementById('statusBox');
         const currentUrlText = document.getElementById('currentUrlText');
         const docTitle = document.getElementById('docTitle'); // Reference to the document title
+        const faviconLink = document.getElementById('faviconLink'); // NEW: Reference to the favicon link
 
         // Set the maximum year to the current year
         yearInput.max = new Date().getFullYear();
@@ -195,8 +198,23 @@
 
             // 1. Update the document title to reflect what is being viewed
             docTitle.textContent = `Viewing: ${urlInput.value} (${year}) - Wayback`;
+            
+            // 2. NEW: Update the document favicon using a third-party service based on the *original* URL.
+            // NOTE: We cannot get the favicon from the archived page itself due to cross-origin security.
+            let domain = '';
+            try {
+                // Safely parse the URL to get the hostname for the favicon
+                domain = new URL(url).hostname;
+            } catch (e) {
+                // Ignore parsing errors, domain remains empty
+            }
 
-            // 2. Update the status bar with the constructed Wayback URL
+            if (domain) {
+                // Use Google Favicon service to get the favicon of the original domain
+                faviconLink.href = `https://s2.googleusercontent.com/s2/favicons?domain=${domain}&sz=64`;
+            }
+
+            // 3. Update the status bar with the constructed Wayback URL
             currentUrlText.textContent = waybackUrl;
             statusBox.classList.remove('hidden');
 
